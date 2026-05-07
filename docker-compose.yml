@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: recipe-backend
+    ports:
+      - "13051:3000"
+    environment:
+      - DATABASE_URL=postgresql://dev:dev123456@host.docker.internal:5432/db_zj_60051
+      - REDIS_URL=redis://default:redis123456@host.docker.internal:6379
+      - JWT_SECRET=recipe-app-jwt-secret-key-for-development
+      - JWT_EXPIRES_IN=7d
+      - PORT=3000
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/prisma:/app/prisma
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: recipe-frontend
+    ports:
+      - "16051:5173"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:13051
+    volumes:
+      - ./frontend/src:/app/src
+    depends_on:
+      - backend
+    restart: unless-stopped

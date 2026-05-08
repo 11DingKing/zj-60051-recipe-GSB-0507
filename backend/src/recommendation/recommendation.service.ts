@@ -22,7 +22,7 @@ export class RecommendationService {
   ) {}
 
   private getCacheKey(userId: string): string {
-    return `recommendation:${userId}`;
+    return `zj60051:recommend:${userId}`;
   }
 
   async getRecommendations(userId: string) {

@@ -28,7 +28,7 @@ export class RecommendationService {
   ) {}
 
   private getCacheKey(userId: string): string {
-    return `recommendation:user:${userId}`;
+    return `zj60051:recommend:${userId}`;
   }
 
   async getPersonalizedRecommendations(userId: string, excludeRecipeId?: string): Promise<any[]> {

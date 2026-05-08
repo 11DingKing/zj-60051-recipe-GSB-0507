@@ -1,8 +1,8 @@
-export type Role = 'USER' | 'ADMIN';
+export type Role = "USER" | "ADMIN";
 
-export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD';
+export type Difficulty = "EASY" | "MEDIUM" | "HARD";
 
-export type RecipeStatus = 'DRAFT' | 'PUBLISHED';
+export type RecipeStatus = "DRAFT" | "PUBLISHED";
 
 export interface User {
   id: string;
@@ -95,4 +95,20 @@ export interface SearchRecipeParams {
   maxCookTime?: number;
   page?: number;
   limit?: number;
+}
+
+export interface Collection {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
+  _count?: { items: number };
+}
+
+export interface ToggleFavoriteResult {
+  isFavorited: boolean;
+  favoriteCount: number;
+  collectionId?: string;
 }

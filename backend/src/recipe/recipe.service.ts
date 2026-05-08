@@ -1,14 +1,18 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { RedisService } from '../redis/redis.service';
-import { CreateRecipeDto } from './dto/create-recipe.dto';
-import { UpdateRecipeDto } from './dto/update-recipe.dto';
-import { SearchRecipeDto } from './dto/search-recipe.dto';
-import { RecipeStatus, Role } from '@prisma/client';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
+import { RedisService } from "../redis/redis.service";
+import { CreateRecipeDto } from "./dto/create-recipe.dto";
+import { UpdateRecipeDto } from "./dto/update-recipe.dto";
+import { SearchRecipeDto } from "./dto/search-recipe.dto";
+import { RecipeStatus, Role } from "@prisma/client";
 
 @Injectable()
 export class RecipeService {
-  private readonly HOT_RECIPES_CACHE_KEY = 'hot_recipes';
+  private readonly HOT_RECIPES_CACHE_KEY = "hot_recipes";
   private readonly CACHE_TTL = 1800;
 
   constructor(
@@ -41,8 +45,8 @@ export class RecipeService {
             select: { id: true, username: true, nickname: true, avatar: true },
           },
           category: true,
-          ingredients: { orderBy: { sortOrder: 'asc' } },
-          steps: { orderBy: { stepNumber: 'asc' } },
+          ingredients: { orderBy: { sortOrder: "asc" } },
+          steps: { orderBy: { stepNumber: "asc" } },
         },
       });
 
@@ -61,7 +65,7 @@ export class RecipeService {
 
     const recipes = await this.prisma.recipe.findMany({
       where: { status: RecipeStatus.PUBLISHED },
-      orderBy: { likeCount: 'desc' },
+      orderBy: { likeCount: "desc" },
       take: limit,
       include: {
         author: {
@@ -88,10 +92,10 @@ export class RecipeService {
 
     if (filters.keyword) {
       where.OR = [
-        { title: { contains: filters.keyword, mode: 'insensitive' } },
+        { title: { contains: filters.keyword, mode: "insensitive" } },
         {
           ingredients: {
-            some: { name: { contains: filters.keyword, mode: 'insensitive' } },
+            some: { name: { contains: filters.keyword, mode: "insensitive" } },
           },
         },
       ];
@@ -118,7 +122,7 @@ export class RecipeService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         include: {
           author: {
             select: { id: true, username: true, nickname: true, avatar: true },
@@ -146,18 +150,18 @@ export class RecipeService {
           select: { id: true, username: true, nickname: true, avatar: true },
         },
         category: true,
-        ingredients: { orderBy: { sortOrder: 'asc' } },
-        steps: { orderBy: { stepNumber: 'asc' } },
+        ingredients: { orderBy: { sortOrder: "asc" } },
+        steps: { orderBy: { stepNumber: "asc" } },
       },
     });
 
     if (!recipe) {
-      throw new NotFoundException('Recipe not found');
+      throw new NotFoundException("Recipe not found");
     }
 
     if (recipe.status !== RecipeStatus.PUBLISHED) {
       if (!userId || recipe.authorId !== userId) {
-        throw new NotFoundException('Recipe not found');
+        throw new NotFoundException("Recipe not found");
       }
     }
 
@@ -170,16 +174,16 @@ export class RecipeService {
     let isFavorited = false;
 
     if (userId) {
-      const [like, favorite] = await Promise.all([
+      const [like, collectionItem] = await Promise.all([
         this.prisma.like.findUnique({
           where: { userId_recipeId: { userId, recipeId: id } },
         }),
-        this.prisma.favorite.findUnique({
-          where: { userId_recipeId: { userId, recipeId: id } },
+        this.prisma.collectionItem.findFirst({
+          where: { recipeId: id, collection: { userId } },
         }),
       ]);
       isLiked = !!like;
-      isFavorited = !!favorite;
+      isFavorited = !!collectionItem;
     }
 
     return {
@@ -197,7 +201,7 @@ export class RecipeService {
         status: RecipeStatus.PUBLISHED,
       },
       take: limit,
-      orderBy: { likeCount: 'desc' },
+      orderBy: { likeCount: "desc" },
       include: {
         author: {
           select: { id: true, username: true, nickname: true, avatar: true },
@@ -215,7 +219,7 @@ export class RecipeService {
 
     return this.prisma.recipe.findMany({
       where,
-      orderBy: { updatedAt: 'desc' },
+      orderBy: { updatedAt: "desc" },
       include: {
         category: { select: { id: true, name: true } },
         _count: {
@@ -231,11 +235,11 @@ export class RecipeService {
     });
 
     if (!recipe) {
-      throw new NotFoundException('Recipe not found');
+      throw new NotFoundException("Recipe not found");
     }
 
     if (recipe.authorId !== userId) {
-      throw new ForbiddenException('You are not the author of this recipe');
+      throw new ForbiddenException("You are not the author of this recipe");
     }
 
     const { ingredients, steps, ...recipeData } = updateRecipeDto;
@@ -283,8 +287,8 @@ export class RecipeService {
             select: { id: true, username: true, nickname: true, avatar: true },
           },
           category: true,
-          ingredients: { orderBy: { sortOrder: 'asc' } },
-          steps: { orderBy: { stepNumber: 'asc' } },
+          ingredients: { orderBy: { sortOrder: "asc" } },
+          steps: { orderBy: { stepNumber: "asc" } },
         },
       });
 
@@ -301,11 +305,11 @@ export class RecipeService {
     });
 
     if (!recipe) {
-      throw new NotFoundException('Recipe not found');
+      throw new NotFoundException("Recipe not found");
     }
 
     if (recipe.authorId !== userId && userRole !== Role.ADMIN) {
-      throw new ForbiddenException('You cannot delete this recipe');
+      throw new ForbiddenException("You cannot delete this recipe");
     }
 
     await this.prisma.recipe.delete({
@@ -313,7 +317,7 @@ export class RecipeService {
     });
 
     await this.clearHotCache();
-    return { message: 'Recipe deleted successfully' };
+    return { message: "Recipe deleted successfully" };
   }
 
   async toggleLike(recipeId: string, userId: string) {
@@ -322,7 +326,7 @@ export class RecipeService {
     });
 
     if (!recipe || recipe.status !== RecipeStatus.PUBLISHED) {
-      throw new NotFoundException('Recipe not found');
+      throw new NotFoundException("Recipe not found");
     }
 
     const existingLike = await this.prisma.like.findUnique({
@@ -355,23 +359,27 @@ export class RecipeService {
     }
   }
 
-  async toggleFavorite(recipeId: string, userId: string) {
+  async toggleFavorite(
+    recipeId: string,
+    userId: string,
+    collectionId?: string,
+  ) {
     const recipe = await this.prisma.recipe.findUnique({
       where: { id: recipeId },
     });
 
     if (!recipe || recipe.status !== RecipeStatus.PUBLISHED) {
-      throw new NotFoundException('Recipe not found');
+      throw new NotFoundException("Recipe not found");
     }
 
-    const existingFavorite = await this.prisma.favorite.findUnique({
-      where: { userId_recipeId: { userId, recipeId } },
+    const existingItem = await this.prisma.collectionItem.findFirst({
+      where: { recipeId, collection: { userId } },
     });
 
-    if (existingFavorite) {
+    if (existingItem) {
       await this.prisma.$transaction([
-        this.prisma.favorite.delete({
-          where: { userId_recipeId: { userId, recipeId } },
+        this.prisma.collectionItem.delete({
+          where: { id: existingItem.id },
         }),
         this.prisma.recipe.update({
           where: { id: recipeId },
@@ -380,28 +388,51 @@ export class RecipeService {
       ]);
       return { isFavorited: false, favoriteCount: recipe.favoriteCount - 1 };
     } else {
+      let targetCollectionId = collectionId;
+
+      if (!targetCollectionId) {
+        let defaultCollection = await this.prisma.collection.findFirst({
+          where: { userId, isDefault: true },
+        });
+        if (!defaultCollection) {
+          defaultCollection = await this.prisma.collection.create({
+            data: { name: "默认收藏夹", isDefault: true, userId },
+          });
+        }
+        targetCollectionId = defaultCollection.id;
+      }
+
       await this.prisma.$transaction([
-        this.prisma.favorite.create({
-          data: { userId, recipeId },
+        this.prisma.collectionItem.create({
+          data: { collectionId: targetCollectionId, recipeId },
         }),
         this.prisma.recipe.update({
           where: { id: recipeId },
           data: { favoriteCount: { increment: 1 } },
         }),
       ]);
-      return { isFavorited: true, favoriteCount: recipe.favoriteCount + 1 };
+      return {
+        isFavorited: true,
+        favoriteCount: recipe.favoriteCount + 1,
+        collectionId: targetCollectionId,
+      };
     }
   }
 
   async findMyFavorites(userId: string) {
-    const favorites = await this.prisma.favorite.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
+    const items = await this.prisma.collectionItem.findMany({
+      where: { collection: { userId } },
+      orderBy: { createdAt: "desc" },
       include: {
         recipe: {
           include: {
             author: {
-              select: { id: true, username: true, nickname: true, avatar: true },
+              select: {
+                id: true,
+                username: true,
+                nickname: true,
+                avatar: true,
+              },
             },
             category: { select: { id: true, name: true } },
           },
@@ -409,7 +440,14 @@ export class RecipeService {
       },
     });
 
-    return favorites.map((f) => f.recipe);
+    const seen = new Set<string>();
+    return items
+      .filter((item) => {
+        if (seen.has(item.recipeId)) return false;
+        seen.add(item.recipeId);
+        return true;
+      })
+      .map((item) => item.recipe);
   }
 
   private async clearHotCache() {

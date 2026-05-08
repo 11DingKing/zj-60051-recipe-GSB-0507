@@ -1,5 +1,13 @@
-import request from '@/utils/request';
-import type { Recipe, PaginatedResponse, SearchRecipeParams, Difficulty, RecipeStatus, Ingredient, Step } from '@/types';
+import request from "@/utils/request";
+import type {
+  Recipe,
+  PaginatedResponse,
+  SearchRecipeParams,
+  Difficulty,
+  RecipeStatus,
+  Ingredient,
+  Step,
+} from "@/types";
 
 export interface CreateRecipeData {
   title: string;
@@ -13,18 +21,30 @@ export interface CreateRecipeData {
   steps: { description: string; image?: string; stepNumber: number }[];
 }
 
-export interface UpdateRecipeData extends Partial<Omit<CreateRecipeData, 'ingredients' | 'steps'>> {
-  ingredients?: { id?: string; name?: string; amount?: string; sortOrder?: number }[];
-  steps?: { id?: string; description?: string; image?: string; stepNumber?: number }[];
+export interface UpdateRecipeData extends Partial<
+  Omit<CreateRecipeData, "ingredients" | "steps">
+> {
+  ingredients?: {
+    id?: string;
+    name?: string;
+    amount?: string;
+    sortOrder?: number;
+  }[];
+  steps?: {
+    id?: string;
+    description?: string;
+    image?: string;
+    stepNumber?: number;
+  }[];
 }
 
 export const recipeApi = {
   getHot(limit: number = 8): Promise<Recipe[]> {
-    return request.get('/api/recipes/hot', { params: { limit } });
+    return request.get("/api/recipes/hot", { params: { limit } });
   },
 
   getLatest(params: SearchRecipeParams): Promise<PaginatedResponse<Recipe>> {
-    return request.get('/api/recipes/latest', { params });
+    return request.get("/api/recipes/latest", { params });
   },
 
   getById(id: string): Promise<Recipe> {
@@ -32,19 +52,25 @@ export const recipeApi = {
   },
 
   getMyRecipes(status?: RecipeStatus): Promise<Recipe[]> {
-    return request.get('/api/recipes/my', { params: { status } });
+    return request.get("/api/recipes/my", { params: { status } });
   },
 
   getMyFavorites(): Promise<Recipe[]> {
-    return request.get('/api/recipes/favorites');
+    return request.get("/api/recipes/favorites");
   },
 
-  getRelated(categoryId: string, recipeId: string, limit: number = 6): Promise<Recipe[]> {
-    return request.get(`/api/recipes/${recipeId}/related`, { params: { categoryId, limit } });
+  getRelated(
+    categoryId: string,
+    recipeId: string,
+    limit: number = 6,
+  ): Promise<Recipe[]> {
+    return request.get(`/api/recipes/${recipeId}/related`, {
+      params: { categoryId, limit },
+    });
   },
 
   create(data: CreateRecipeData): Promise<Recipe> {
-    return request.post('/api/recipes', data);
+    return request.post("/api/recipes", data);
   },
 
   update(id: string, data: UpdateRecipeData): Promise<Recipe> {
@@ -59,7 +85,14 @@ export const recipeApi = {
     return request.post(`/api/recipes/${id}/like`);
   },
 
-  toggleFavorite(id: string): Promise<{ isFavorited: boolean; favoriteCount: number }> {
-    return request.post(`/api/recipes/${id}/favorite`);
+  toggleFavorite(
+    id: string,
+    collectionId?: string,
+  ): Promise<{
+    isFavorited: boolean;
+    favoriteCount: number;
+    collectionId?: string;
+  }> {
+    return request.post(`/api/recipes/${id}/favorite`, { collectionId });
   },
 };

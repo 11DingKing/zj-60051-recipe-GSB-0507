@@ -278,6 +278,32 @@
 
       <div class="sidebar">
         <div class="sidebar-section">
+          <h4 class="sidebar-title">猜你喜欢</h4>
+          <div class="related-recipes">
+            <div
+              v-for="item in forYouRecipes"
+              :key="item.id"
+              class="related-item"
+              @click="goToDetail(item.id)"
+            >
+              <img
+                :src="item.coverImage || 'https://picsum.photos/120/90'"
+                :alt="item.title"
+              />
+              <div class="related-info">
+                <span class="related-title">{{ item.title }}</span>
+                <span class="related-meta"
+                  >{{ item.category.name }} · {{ item.likeCount }}赞</span
+                >
+              </div>
+            </div>
+            <div v-if="forYouRecipes.length === 0" class="empty-recommend">
+              <el-empty description="暂无推荐" :image-size="60" />
+            </div>
+          </div>
+        </div>
+
+        <div class="sidebar-section">
           <h4 class="sidebar-title">相关推荐</h4>
           <div class="related-recipes">
             <div
@@ -311,7 +337,9 @@ import { ElMessage } from "element-plus";
 import { useUserStore } from "@/stores/user";
 import { recipeApi } from "@/api/recipe";
 import { commentApi } from "@/api/comment";
-import type { Recipe, Comment, Difficulty } from "@/types";
+import { collectionsApi } from "@/api/collections";
+import { recommendationApi } from "@/api/recommendation";
+import type { Recipe, Comment, Difficulty, Collection } from "@/types";
 
 const route = useRoute();
 const router = useRouter();
@@ -320,6 +348,7 @@ const userStore = useUserStore();
 const recipe = ref<Recipe | null>(null);
 const loading = ref(false);
 const relatedRecipes = ref<Recipe[]>([]);
+const forYouRecipes = ref<Recipe[]>([]);
 
 const comments = ref<Comment[]>([]);
 const commentsLoading = ref(false);
@@ -331,6 +360,12 @@ const newComment = ref("");
 const replyContent = ref("");
 const replyingTo = ref<string | null>(null);
 const submitting = ref(false);
+
+const collections = ref<Collection[]>([]);
+const selectCollectionDialogVisible = ref(false);
+const selectedCollectionId = ref<string>("");
+const selectingCollection = ref(false);
+const isAddingToCollection = ref(false);
 
 const getDifficultyText = (difficulty: Difficulty) => {
   const map: Record<Difficulty, string> = {
@@ -406,6 +441,26 @@ const fetchRelatedRecipes = async () => {
   }
 };
 
+const fetchForYouRecipes = async () => {
+  if (!userStore.isLoggedIn) return;
+
+  const id = route.params.id as string;
+  try {
+    forYouRecipes.value = await recommendationApi.getForYou(id);
+  } catch (error) {
+    forYouRecipes.value = [];
+  }
+};
+
+const fetchCollections = async () => {
+  if (!userStore.isLoggedIn) return;
+  try {
+    collections.value = await collectionsApi.getAll();
+  } catch (error) {
+    ElMessage.error("获取收藏夹失败");
+  }
+};
+
 const fetchComments = async () => {
   const id = route.params.id as string;
   if (!id) return;
@@ -450,13 +505,46 @@ const handleFavorite = async () => {
 
   if (!recipe.value) return;
 
+  if (recipe.value.isFavorited) {
+    try {
+      const recipeCollections = await collectionsApi.getRecipeCollections(
+        recipe.value.id,
+      );
+      for (const col of recipeCollections) {
+        await collectionsApi.removeRecipe(col.id, recipe.value.id);
+      }
+      recipe.value.isFavorited = false;
+      recipe.value.favoriteCount = Math.max(0, recipe.value.favoriteCount - 1);
+      ElMessage.success("已取消收藏");
+    } catch (error) {
+      ElMessage.error("操作失败");
+    }
+  } else {
+    isAddingToCollection.value = true;
+    await fetchCollections();
+    selectedCollectionId.value =
+      collections.value.find((c) => c.isDefault)?.id ||
+      collections.value[0]?.id ||
+      "";
+    selectCollectionDialogVisible.value = true;
+  }
+};
+
+const handleConfirmAddToCollection = async () => {
+  if (!recipe.value || !selectedCollectionId.value) return;
+
+  selectingCollection.value = true;
   try {
-    const result = await recipeApi.toggleFavorite(recipe.value.id);
-    recipe.value.isFavorited = result.isFavorited;
-    recipe.value.favoriteCount = result.favoriteCount;
-    ElMessage.success(result.isFavorited ? "收藏成功" : "取消收藏");
+    await collectionsApi.addRecipe(selectedCollectionId.value, recipe.value.id);
+    recipe.value.isFavorited = true;
+    recipe.value.favoriteCount = recipe.value.favoriteCount + 1;
+    ElMessage.success("收藏成功");
+    selectCollectionDialogVisible.value = false;
   } catch (error) {
-    ElMessage.error("操作失败");
+    ElMessage.error("收藏失败");
+  } finally {
+    selectingCollection.value = false;
+    isAddingToCollection.value = false;
   }
 };
 
@@ -537,9 +625,52 @@ const reportComment = async (commentId: string) => {
 
 onMounted(async () => {
   await fetchRecipe();
-  await Promise.all([fetchRelatedRecipes(), fetchComments()]);
+  await Promise.all([
+    fetchRelatedRecipes(),
+    fetchForYouRecipes(),
+    fetchComments(),
+  ]);
 });
 </script>
+
+<el-dialog
+  v-model="selectCollectionDialogVisible"
+  title="选择收藏夹"
+  width="400px"
+>
+  <el-radio-group v-model="selectedCollectionId" class="collection-radio-group">
+    <el-radio
+      v-for="col in collections"
+      :key="col.id"
+      :label="col.id"
+      class="collection-radio"
+    >
+      <span class="collection-name">
+        {{ col.name }}
+        <el-tag
+          v-if="col.isDefault"
+          size="small"
+          type="info"
+          effect="light"
+          style="margin-left: 8px"
+        >
+          默认
+        </el-tag>
+      </span>
+      <span class="collection-count">({{ col.recipeCount }} 个菜谱)</span>
+    </el-radio>
+  </el-radio-group>
+  <template #footer>
+    <el-button @click="selectCollectionDialogVisible = false">取消</el-button>
+    <el-button
+      type="primary"
+      @click="handleConfirmAddToCollection"
+      :loading="selectingCollection"
+    >
+      确认收藏
+    </el-button>
+  </template>
+</el-dialog>
 
 <style lang="scss" scoped>
 .recipe-detail-page {
@@ -969,5 +1100,43 @@ onMounted(async () => {
   margin-left: 4px;
   font-size: 12px;
   opacity: 0.8;
+}
+
+.collection-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  .collection-radio {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    margin: 0;
+
+    &:hover {
+      border-color: #ff6b6b;
+    }
+
+    :deep(.el-radio__input) {
+      margin-right: 12px;
+    }
+
+    .collection-name {
+      font-weight: 500;
+      color: #333;
+    }
+
+    .collection-count {
+      margin-left: auto;
+      color: #999;
+      font-size: 13px;
+    }
+  }
+}
+
+.empty-recommend {
+  padding: 20px 0;
 }
 </style>
